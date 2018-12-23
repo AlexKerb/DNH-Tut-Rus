@@ -1,0 +1,77 @@
+#TouhouDanmakufu[Single] //Тип скрипта
+#ScriptVersion[3] //Версия движка, на которой скрипт будет работать
+#ID[FHSJ1224] //ID, в данном случае подойдет любая комбинация букв и цифр, необязательно
+#Title["TUTORIAL123"] //Название скрипта
+#Text["ABC"] //Описание скрипта
+
+#include "script/default_system/Default_ShotConst.txt"  //Включение в скрипт файл с наименованиями спрайтов выстрелов и их характеристиками
+
+let oB; //"Создание и наименование" объекта (В данном случае босса)
+
+@Event{
+	alternative(GetEventType()) 
+	case(EV_REQUEST_LIFE){
+		SetScriptResult(2500); //Кол-во жизней
+	}
+	case(EV_REQUEST_TIMER){
+		SetScriptResult(60); //Таймер атаки
+	}
+	case(EV_REQUEST_SPELL_SCORE){
+		SetScriptResult(1000000); //Очки за спелл-карту (не используется)
+	}
+} 
+
+@Initialize{
+	oB = ObjEnemy_Create(OBJ_ENEMY_BOSS); //Создание данного объекта как босса
+	ObjEnemy_Regist(oB); //Регистрация объекта в игровом пространстве
+	ObjMove_SetPosition(oB, GetCenterX(), 100);
+	
+	TDraw; //Задача (таск) отрисовки
+	TFinalize; //Таск завершения атаки и скрипта
+	shooting; //Таск стрельбы
+}
+
+@MainLoop{
+	ObjEnemy_SetIntersectionCircleToShot(oB, ObjMove_GetX(oB), ObjMove_GetY(oB), 32);
+	ObjEnemy_SetIntersectionCircleToPlayer(oB, ObjMove_GetX(oB), ObjMove_GetY(oB), 24); //Создание хитбоксов на регистрацию попаданий пуль и самого персонажа в босса (oB), первая и вторая строчки соответственно
+	yield; //Прерывние исполнения команды на 1 фрейм (без этого скрипт крашится)
+}
+
+task TDraw{
+        let BossImage = GetCurrentScriptDirectory() ~ "./ExRumia.png"; //Путь к спрайту
+        ObjPrim_SetTexture(oB, BossImage); //Привязка спрайта к боссу
+        ObjRender_SetScaleXYZ(oB, 1, 1, 1); //Растягивание спрайта по трем измерениям. 1, 1, 1 Ничего не меняют
+        ObjSprite2D_SetSourceRect(oB, 64, 1, 127, 64); //Вырезание спрайта из Spritesheet'а
+        ObjSprite2D_SetDestCenter(oB); //Отцентровка спрайта
+        while(!Obj_IsDeleted(oB)){ //Если босс не удален, то цикл повторяется заново с перерывом в один фрейм
+            yield;
+        }
+    }
+	
+task TFinalize {
+    while(ObjEnemy_GetInfo(oB, INFO_LIFE) > 0){yield;} //Если здоровье босса больше ноля, то ничего не происходит
+    Obj_Delete(oB);
+    DeleteShotAll(TYPE_ALL, TYPE_IMMEDIATE);
+    SetAutoDeleteObject(true);
+    CloseScript(GetOwnScriptID());
+    return; //В противном случае, босс, все пули и прочие объекты удаляются, и скрипт закрывается
+}
+
+task shooting{
+	while(ObjEnemy_GetInfo(oB, INFO_LIFE) > 0){  //Если здоровье босса больше ноля, то:
+		let AG = GetAngleToPlayer(oB); //Задается переменная AG со значением угла направления к игроку
+		CreateShotA1(ObjMove_GetX(oB), ObjMove_GetY(oB), 3, AG, DS_RICE_S_RED, 0); //И создается выстрел со следующими характеристиками: 1-Место появления пули по иксу, 2-Место появления пули по игреку, 3-Скорость, 4-Направление выстрела (угол), 5-Спрайт выстрела,6-Задержка между анимацией выстрела и появлением самой пули.
+		wait(10); //И все это происходит с интервалом в 10 фреймов, уменьшение значения приводит к увеличению скорострельности
+	}
+}
+
+function GetCenterX(){
+	return GetStgFrameWidth() / 2; //Функция нахождения середины по иксу (в целом, необязательно, в данном скрипте необходимо)
+}
+function GetCenterY(){
+	return GetStgFrameHeight() / 2; //Функция нахождения середины по иксу (в целом, необязательно, в данном скрипте необходимо)
+}
+
+function wait(n){  //Функция установки задержек (В данном и большинстве других скриптов используется повсеместно)
+	loop(n){yield;}
+}
